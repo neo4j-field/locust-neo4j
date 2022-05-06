@@ -13,7 +13,9 @@ class Request(Enum):
     READ = "Cypher Read"
     WRITE = "Cypher Write"
 
-class Neo4jClient: ... # this is here just as a forward declaration
+class Neo4jUser: ... # forward declaration
+class Neo4jClient: ... # forward declaration
+
 
 class Neo4jPool:
     """Manages Neo4j Driver state. Acts as a 'static' instance, so 1 per Python interpreter."""
@@ -43,10 +45,11 @@ class Neo4jClient:
             return cnt, result.consume()
         return _work
 
-    def _run_tx(self, req: Request, env: Environment, cypher: str, **params) -> Tuple[int, int]:
+    def _run_tx(self, req: Request, user: Neo4jUser, cypher: str, **params) -> Tuple[int, int]:
         err: Exception = None
         delta, cnt = 0, 0
-        skip_report = False
+        send_report = True
+        fire: Callable = user.environment.events.request.fire
 
         start = time.perf_counter()
         try:
@@ -60,24 +63,24 @@ class Neo4jClient:
             delta = (time.perf_counter() - start) * 1000 # todo: is this correct? (millis?)
         except (KeyboardInterrupt, StopIteration) as e:
             # someone pulled the plug, just ignore for now
-            skip_report = True
+            send_report = False
         except Exception as e:
             err = e
 
-        if not skip_report:
-            env.events.request.fire(request_type=str(req),
-                                    name=cypher,
-                                    response_time=delta,
-                                    response_length=cnt, # should be bytes, but we're using rows
-                                    exception=err,
-                                    context = { "client_id": self.client_id })
+        if send_report:
+            fire(request_type=str(req),
+                 name=cypher,
+                 response_time=delta,
+                 response_length=cnt, # should be bytes, but we're using rows
+                 exception=err,
+                 context = { "user_id": user.user_id, "client_id": self.client_id })
         return cnt, delta
 
-    def read(self, env: Environment, cypher: str, **params):
-        return self._run_tx(Request.READ, env, cypher, **params)
+    def read(self, user: Neo4jUser, cypher: str, **params):
+        return self._run_tx(Request.READ, user, cypher, **params)
 
-    def write(self, env: Environment, cypher: str, **params):
-        return self._run_tx(Request.WRITE, env, cypher, **params)
+    def write(self, user: Neo4jUser, cypher: str, **params):
+        return self._run_tx(Request.WRITE, user, cypher, **params)
 
     def __del__(self):
         self._driver.close()
@@ -98,15 +101,27 @@ class Neo4jUser(User):
         if not self.host:
             self.host = "neo4j://localhost"
         self.auth = auth
+        self.user_id = str(uuid.uuid4())
+
+    def read(self, cypher: str, **params):
+        """Higher order wrapper around Neo4jClient.read()"""
+        return self.client.read(self, cypher, **params)
+
+    def write(self, cypher: str, **params):
+        """Higher order wrapper around Neo4jClient.write()"""
+        return self.client.write(self, cypher, **params)
 
     def on_start(self):
         self.client: Neo4jClient = Neo4jPool.get_client(self.host, self.auth)
-        print(f"Neo4jUser({self.auth[0]}) starting")
+        print(f"{self} starting")
 
     def on_stop(self):
-        print(f"Neo4jUser({self.auth[0]}) stopped")
-        # need a better cleanup hook
+        print(f"{self} stopped")
+        # todo: need a better cleanup hook
         del self.client
+
+    def __str__(self):
+        return f"Neo4jUser({self.user_id})"
 
 
 class DumbUser(Neo4jUser):
@@ -117,5 +132,4 @@ class DumbUser(Neo4jUser):
 
     @task
     def hello_world(self):
-        cnt, delta = self.client.read(self.environment,
-                                      "UNWIND ['Hello', 'World'] AS x RETURN x")
+        cnt, delta = self.read("UNWIND ['Hello', 'World'] AS x RETURN x")
