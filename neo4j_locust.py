@@ -95,6 +95,8 @@ class Neo4jUser(User):
     def __init__(self, environment: Environment, auth: Tuple[str, str]):
         super().__init__(environment)
         self.host = environment.host
+        if not self.host:
+            self.host = "neo4j://localhost"
         self.auth = auth
 
     def on_start(self):
