@@ -58,7 +58,7 @@ class Neo4jClient:
                 else:
                     raise Exception("oh crap")
             delta = (time.perf_counter() - start) * 1000 # todo: is this correct? (millis?)
-        except StopIteration as e:
+        except (KeyboardInterrupt, StopIteration) as e:
             # someone pulled the plug, just ignore for now
             skip_report = True
         except Exception as e:
