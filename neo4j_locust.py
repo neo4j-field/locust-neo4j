@@ -9,6 +9,7 @@ from locust import between, User, task
 from locust.env import Environment
 from neo4j import Driver, GraphDatabase
 
+
 class Request(Enum):
     READ = "Cypher Read"
     WRITE = "Cypher Write"
@@ -18,7 +19,10 @@ class Neo4jClient: ... # forward declaration
 
 
 class Neo4jPool:
-    """Manages Neo4j Driver state. Acts as a 'static' instance, so 1 per Python interpreter."""
+    """
+    Manages Neo4j Driver state. Acts as a 'static' instance, so 1 per Python
+    interpreter.
+    """
     client_map: Dict[str, Neo4jClient] = {}
 
     @classmethod
@@ -33,7 +37,7 @@ class Neo4jPool:
 class Neo4jClient:
     """Wrapper around a Driver instance to make a Neo4jUser simpler."""
     def __init__(self, uri: str, auth: Tuple[str, str]):
-        self.driver: Driver = GraphDatabase.driver(uri, auth=auth) # type: ignore
+        self.driver: Driver = GraphDatabase.driver(uri, auth=auth) #type: ignore
         self.client_id = str(uuid.uuid4())
 
     @classmethod
@@ -45,7 +49,8 @@ class Neo4jClient:
             return cnt, result.consume()
         return _work
 
-    def _run_tx(self, req: Request, user: Neo4jUser, cypher: str, **params) -> Tuple[int, int]:
+    def _run_tx(self, req: Request, user: Neo4jUser,
+                cypher: str, **params) -> Tuple[int, int]:
         err: Exception = None
         delta, cnt = 0, 0
         send_report = True
@@ -55,12 +60,14 @@ class Neo4jClient:
         try:
             with self.driver.session() as session:
                 if req is Request.READ:
-                    cnt, _ = session.read_transaction(self._do_work(cypher), **params)
+                    cnt, _ = session.read_transaction(
+                        self._do_work(cypher), **params)
                 elif req is Request.WRITE:
-                    cnt, _ = session.write_transaction(self._do_work(cypher), **params)
+                    cnt, _ = session.write_transaction(
+                        self._do_work(cypher), **params)
                 else:
                     raise Exception("oh crap")
-            delta = (time.perf_counter() - start) * 1000 # todo: is this correct? (millis?)
+            delta = (time.perf_counter() - start) * 1000
         except (KeyboardInterrupt, StopIteration) as e:
             # someone pulled the plug, just ignore for now
             send_report = False
@@ -73,7 +80,10 @@ class Neo4jClient:
                  response_time=delta,
                  response_length=cnt, # should be bytes, but we're using rows
                  exception=err,
-                 context = { "user_id": user.user_id, "client_id": self.client_id })
+                 context = {
+                     "user_id": user.user_id,
+                     "client_id": self.client_id
+                 })
         return cnt, delta
 
     def read(self, user: Neo4jUser, cypher: str, **params):
@@ -82,8 +92,11 @@ class Neo4jClient:
     def write(self, user: Neo4jUser, cypher: str, **params):
         return self._run_tx(Request.WRITE, user, cypher, **params)
 
+    def close(self):
+        self.driver.close()
+
     def __del__(self):
-        self._driver.close()
+        self.driver.close()
 
 
 class Neo4jUser(User):
@@ -116,9 +129,10 @@ class Neo4jUser(User):
         print(f"{self} starting")
 
     def on_stop(self):
+        self.client.close()
         print(f"{self} stopped")
-        # todo: need a better cleanup hook
-        del self.client
+        # todo: need a better cleanup hook...this pulls the plug on multiple
+        # users at once
 
     def __str__(self):
         return f"Neo4jUser({self.user_id})"
@@ -127,8 +141,9 @@ class Neo4jUser(User):
 class DumbUser(Neo4jUser):
     """Simply slams the target Neo4j system with a silly Cypher read."""
 
-    def __init__(self, environment: Environment):
-        super().__init__(environment, auth=("neo4j", "password")) # <-- need to plug your auth here
+    def __init__(self, environment: Environment,
+                 auth: Tuple[str, str] = ("neo4j", "password")):
+        super().__init__(environment, auth=auth)
 
     @task
     def hello_world(self):
