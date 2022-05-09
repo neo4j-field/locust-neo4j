@@ -239,8 +239,6 @@ class Neo4jUser(User):
 
 class DumbUser(Neo4jUser):
     """Simply slams the target Neo4j system with a silly Cypher read."""
-    #wait_time = between(0.01, 0.02)
-
     def __init__(self, environment: Environment,
                  auth: Tuple[str, str] = ("neo4j", "password")):
         super().__init__(environment, auth=auth)
