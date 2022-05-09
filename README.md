@@ -82,8 +82,7 @@ If you're writing a Locust test, you should start by subclassing the
 `Neo4jUser`. It exposes simple `read()` and `write()` methods to make
 it easier to configure your Cypher transactions.
 
-An example (that's currently also in
-(neo4j_locust.py)[./neo4j_locust.py]):
+An example (also in [neo4j_locust.py](./neo4j_locust.py)):
 
 ```python
 from locust import task
