@@ -5,10 +5,11 @@ from weakref import ref
 
 from collections.abc import Callable
 from typing import Any, Dict, Tuple
+import logging
 
 from locust import events, User, task
 from locust.env import Environment
-from locust.user.wait_time import constant
+
 from neo4j import Driver, GraphDatabase
 
 
@@ -48,7 +49,7 @@ class Neo4jClient:
         delta, cnt, abort = 0, 0, False
         send_report = True
         # todo: set env from pool during client creation
-        fire: Callable = user_ref().environment.events.request.fire
+        fire: Callable = user_ref().environment.events.request.fire #type: ignore
 
         start = perf_counter()
         try:
@@ -76,7 +77,7 @@ class Neo4jClient:
                  response_length=cnt, # should be bytes, but we're using rows
                  exception=err,
                  context = {
-                     "user_id": user_ref().user_id,
+                     "user_id": user_ref().user_id, # type: ignore
                      "client_id": self.client_id
                  })
         return cnt, delta, abort
@@ -88,7 +89,7 @@ class Neo4jClient:
         return self._run_tx(Request.WRITE, user_ref, cypher, **params)
 
     def close(self):
-        print(f"{self} closing driver")
+        logging.info(f"{self} closing driver")
         self.driver.close()
 
     def __str__(self):
@@ -96,7 +97,7 @@ class Neo4jClient:
 
     def __del__(self):
         self.close()
-        print(f"{self} destroyed")
+        logging.debug(f"{self} destroyed")
 
 
 class Neo4jPool:
@@ -110,13 +111,12 @@ class Neo4jPool:
 
     @classmethod
     def on_test_start(cls, environment: Environment):
-        print(f"Neo4jPool: on_test_start")
         cls.environment = environment
 
     @classmethod
     def on_test_stop(cls, environment: Environment):
-        print(f"Neo4jPool: on_test_stop")
-        # todo: release all clients, but we need to hand out weakrefs
+        pass
+        # todo: release all clients?, but we need to hand out weakrefs
 
     @classmethod
     def acquire(cls, uri: str, auth: Tuple[str, str]) -> Neo4jClient:
@@ -127,11 +127,11 @@ class Neo4jPool:
         else:
             client = Neo4jClient(uri, auth)
             cls.client_map.update({key: client})
-            print(f"Neo4jPool: added driver for {key}")
+            logging.info(f"Neo4jPool: added driver for {key}")
 
         cnt = cls.refcnt_map.get(client.client_id, 0) + 1
         cls.refcnt_map[client.client_id] = cnt
-        print(f"Neo4jPool.acquire: client {client.client_id} refcnt = {cnt}")
+        logging.debug(f"Neo4jPool.acquire: {client} refcnt = {cnt}")
 
         return client
 
@@ -141,12 +141,12 @@ class Neo4jPool:
         key: str = client.pool_key
 
         if not client_id in cls.refcnt_map:
-            print(f"Neo4jPool: unknown client_id {client_id}")
+            logging.error(f"Neo4jPool: unknown client_id {client_id}")
             return
 
         # XXX there's possibly a race condition here
         cnt = cls.refcnt_map[client_id] - 1
-        print(f"Neo4jPool.release: client {client_id} refcnt = {cnt}")
+        logging.debug(f"Neo4jPool.release: {client} refcnt = {cnt}")
         if cnt < 1:
             cls.refcnt_map.pop(client_id)
             cls.client_map.pop(key).close()
@@ -166,15 +166,12 @@ def on_test_stop(environment, **kwargs):
 
 @events.user_error.add_listener
 def on_user_error(user_instance, exception, tb):
-    if not isinstance(exception, LocustSucksException):
-        print(f"error from {user_instance}: {exception}\n{tb}")
-    else:
-        print(f"user {user_instance} hard stopping.")
-        user_instance.interrupt(reschedule=False)
+    logging.info(f"user {user_instance} hard stopping.")
+    user_instance.interrupt(reschedule=False)
 
 @events.quit.add_listener
 def on_quit(exit_code):
-    print(f"exiting... {exit_code}")
+    logging.debug(f"exiting... {exit_code}")
 
 
 class Neo4jUser(User):
@@ -203,7 +200,7 @@ class Neo4jUser(User):
 
         cnt, delta, abort = self.client.read(ref(self), cypher, **params)
         if abort:
-            print(f"{self} aborting")
+            logging.debug(f"{self} aborting")
             self.on_stop()
         return cnt, delta
 
@@ -215,21 +212,21 @@ class Neo4jUser(User):
 
         cnt, delta, abort = self.client.write(ref(self), cypher, **params)
         if abort:
-            print(f"{self} aborting")
+            logging.debug(f"{self} aborting")
             self.on_stop()
         return cnt, delta
 
     def on_start(self):
         if not self.client:
             self.client: Neo4jClient = Neo4jPool.acquire(self.host, self.auth)
-        print(f"{self} starting")
+        logging.info(f"{self} starting")
 
     def on_stop(self):
         if self.client:
             Neo4jPool.release(self.client)
             self.client = None
         self.greenlet.kill()     # XXX this is silly
-        print(f"{self} stopped")
+        logging.info(f"{self} stopped")
 
     def __str__(self):
         return f"Neo4jUser({self.user_id})"
@@ -237,7 +234,7 @@ class Neo4jUser(User):
     def __del__(self):
         if self.client:
             self.on_stop()
-        print(f"{self} destroyed")
+        logging.debug(f"{self} destroyed")
 
 
 class DumbUser(Neo4jUser):
