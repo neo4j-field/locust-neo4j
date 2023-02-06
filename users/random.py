@@ -15,9 +15,9 @@ class RandomReader(Neo4jUser):
     def __init__(self, environment: Environment,
                  auth: Tuple[str, str] = ("neo4j", "password")):
         super().__init__(environment, auth=auth)
-        self.max_node_id = 0
+        self.max_node_id = -1
 
-    def on_start(self) -> None:
+    def find_max_node_id(self) -> None:
         if self.client is None:
             raise RuntimeError("failed to find a valid Neo4j client")
 
@@ -34,6 +34,9 @@ class RandomReader(Neo4jUser):
 
     @task
     def random_read(self) -> None:
+        if self.max_node_id < 0:
+            self.find_max_node_id()
+
         self.read(
             """
             MATCH (n) WHERE id(n) = $nodeId
