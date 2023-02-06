@@ -1,9 +1,10 @@
-from . import Neo4jUser
+from random import uniform
+from typing import Tuple
 
 from locust import task
 from locust.env import Environment
 
-from typing import Tuple
+from . import Neo4jUser
 
 
 class RandomReader(Neo4jUser):
@@ -37,11 +38,12 @@ class RandomReader(Neo4jUser):
         if self.max_node_id < 0:
             self.find_max_node_id()
 
+        target = int(uniform(0, self.max_node_id))
         self.read(
             """
             MATCH (n) WHERE id(n) = $nodeId
             MATCH p=(n)-[*1..3]-()
             RETURN p LIMIT 5
             """,
-            nodeId=self.max_node_id
+            nodeId=target
         )
