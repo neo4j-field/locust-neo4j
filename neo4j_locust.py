@@ -22,7 +22,8 @@ if __name__ == "__main__":
 
     gevent.spawn(stats_printer(env.stats))
 
-    runner.start(cpu_count(), spawn_rate=10)
+    users = cpu_count() or 1
+    runner.start(users, spawn_rate=10)
 
     gevent.spawn_later(60, lambda: runner.quit())
 

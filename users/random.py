@@ -1,6 +1,6 @@
 from . import Neo4jUser
 
-from locust import on_start, task
+from locust import task
 from locust.env import Environment
 
 from typing import Tuple
@@ -17,13 +17,20 @@ class RandomReader(Neo4jUser):
         super().__init__(environment, auth=auth)
         self.max_node_id = 0
 
-    @on_start
-    def find_max_node_id(self) -> None:
-        with self.driver.session() as session:
+    def on_start(self) -> None:
+        if self.client is None:
+            raise RuntimeError("failed to find a valid Neo4j client")
+
+        with self.client.driver.session() as session:
             res = session.run(
                 "MATCH (n) WITH id(n) AS nodeId RETURN max(nodeId)"
             )
-            self.max_node_id = int(res.single())
+            record = res.single()
+            if record is None:
+                raise RuntimeError("failed to find max node id")
+            value = record.value()
+            res.consume()
+            self.max_node_id = int(value)
 
     @task
     def random_read(self) -> None:
