@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+from os import cpu_count
+
 import gevent
 
 from locust.env import Environment
@@ -20,7 +22,7 @@ if __name__ == "__main__":
 
     gevent.spawn(stats_printer(env.stats))
 
-    runner.start(1, spawn_rate=10)
+    runner.start(cpu_count(), spawn_rate=10)
 
     gevent.spawn_later(60, lambda: runner.quit())
 
