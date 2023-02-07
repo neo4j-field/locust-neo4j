@@ -13,8 +13,7 @@ from locust.env import Environment
 from neo4j import Driver, GraphDatabase, ManagedTransaction
 
 from collections.abc import Callable
-from typing import Any, Dict, Optional, Tuple
-from mypy_extensions import KwArg
+from typing import cast, Any, Dict, Optional, Tuple
 
 
 class Request(Enum):
@@ -192,12 +191,16 @@ class Neo4jUser(User):
     """
     abstract = True
 
-    def __init__(self, environment: Environment, auth: Tuple[str, str]):
-        super().__init__(environment) # type: ignore
-        self.host: str = environment.host
-        if not self.host:
-            self.host = "neo4j://localhost"
-        self.auth = auth
+    def __init__(self, env: Environment):
+        super().__init__(env)
+        if not env.host:
+            raise ValueError("host cannot be empty!")
+        if not env.parsed_options:
+            raise ValueError("missing parsed options!")
+        self.auth = (
+            env.parsed_options.neo4j_user,
+            env.parsed_options.neo4j_pass
+        )
         self.user_id = str(uuid4())
         self.client: Optional[Neo4jClient] = None
 
@@ -227,7 +230,7 @@ class Neo4jUser(User):
 
     def on_start(self) -> None:
         if not self.client:
-            self.client = Neo4jPool.acquire(self.host, self.auth)
+            self.client = Neo4jPool.acquire(cast(str, self.host), self.auth)
         logging.info(f"{self} starting")
 
     def on_stop(self) -> None:

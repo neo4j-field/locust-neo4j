@@ -13,9 +13,8 @@ class RandomReader(Neo4jUser):
     hops.
     """
 
-    def __init__(self, environment: Environment,
-                 auth: Tuple[str, str] = ("neo4j", "password")):
-        super().__init__(environment, auth=auth)
+    def __init__(self, env: Environment):
+        super().__init__(env)
         self.max_node_id = -1
 
     def find_max_node_id(self) -> None:
