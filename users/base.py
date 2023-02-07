@@ -24,8 +24,8 @@ class Request(Enum):
 # using a global for now
 DRIVER_CONFIG = {
     "user_agent": "neo4j_locust/1.0 (yolo edition)",
-    "max_connection_lifetime": 60 * 15, # seconds
-    "max_connection_pool_size": 10, # XXX
+    "max_connection_lifetime": 60 * 30, # seconds
+    "max_connection_pool_size": 100, # XXX
     "connection_acquisition_timeout": 10, # seconds
 }
 
