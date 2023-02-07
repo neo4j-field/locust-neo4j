@@ -23,12 +23,15 @@ def worker(host: str, port: int, neo4j_uri: str):
 
     """TBD"""
     pid = getpid()
-    env = Environment(user_classes=[RandomReader])
-    env.host = neo4j_uri
+    env = Environment(host=neo4j_uri, user_classes=[RandomReader])
     print(f"worker({pid}): connecting to parent @ {host}:{port}")
 
     runner = env.create_worker_runner(host, port)
     print(f"worker({pid}): created runner")
+
+    if runner.environment.host != env.host:
+        print(f"UHHH host not set?!")
+        runner.greenlet.kill()
 
     runner.greenlet.join()
     print(f"worker({pid}): STOPPING!!!!!!!")
