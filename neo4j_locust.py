@@ -26,8 +26,10 @@ def worker(neo4j_uri: str, args: argparse.Namespace,
     runner = env.create_worker_runner(host, port)
     print(f"worker({pid}): created runner")
 
-    runner.greenlet.join()
-    print(f"worker({pid}): STOPPING!!!!!!!")
+    try:
+        runner.greenlet.join()
+    except Exception as e:
+        print(f"worker({pid}): caught {e}")
 
 
 if __name__ == "__main__":
@@ -36,6 +38,7 @@ if __name__ == "__main__":
     from locust.argument_parser import LocustArgumentParser, setup_parser_arguments
     from users import RandomReader
 
+    # Required on Linux
     mp.set_start_method("spawn")
 
     parser = LocustArgumentParser()
@@ -49,6 +52,7 @@ if __name__ == "__main__":
     neo4j_group.add_argument("--neo4j-uri", default="neo4j://localhost:7687")
     neo4j_group.add_argument("--neo4j-user", default="neo4j")
     neo4j_group.add_argument("--neo4j-pass", default="password")
+    neo4j_group.add_argument("--workers", default=cpu_count(), type=int)
     neo4j_group.add_argument("--debug", action="store_true")
     setup_parser_arguments(parser)
     args = parser.parse_args()
@@ -63,7 +67,7 @@ if __name__ == "__main__":
                       parsed_options=args)
     parent = env.create_master_runner()
 
-    num_workers = 1 or cpu_count() or 1
+    num_workers = args.workers or cpu_count()
     workers = [
         mp.Process(target=worker, args=(args.neo4j_uri, args, [RandomReader]))
         for _ in range(num_workers)
@@ -74,7 +78,10 @@ if __name__ == "__main__":
 
     import time
     time.sleep(2)
-    parent.start(1, spawn_rate=1)
+    try:
+        parent.start(args.num_users or 1, spawn_rate=args.spawn_rate or 0.1)
+    except Exception as e:
+        logging.info(f"exception caught: {e}")
 
     for w in workers:
         w.join()
