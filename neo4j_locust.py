@@ -13,7 +13,7 @@ from locust.stats import stats_printer
 setup_logging("INFO", None)
 
 
-def worker(host: str, port: str):
+def worker(host: str, port: int, neo4j_uri: str):
     from locust.env import Environment
     from locust.log import setup_logging
     from locust.runners import MasterRunner, WorkerRunner
@@ -24,7 +24,8 @@ def worker(host: str, port: str):
     """TBD"""
     pid = getpid()
     env = Environment(user_classes=[RandomReader])
-    print(f"worker({pid}): connecting to {host}:{port}")
+    env.host = neo4j_uri
+    print(f"worker({pid}): connecting to parent @ {host}:{port}")
 
     runner = env.create_worker_runner(host, port)
     print(f"worker({pid}): created runner")
@@ -51,7 +52,8 @@ if __name__ == "__main__":
     mp.set_start_method("spawn")
     num_workers = cpu_count() or 1
     workers = [
-        mp.Process(target=worker, args=(host, port,)) for _ in range(num_workers)
+        mp.Process(target=worker, args=(host, port, neo4j_uri))
+        for _ in range(num_workers)
     ]
     print(f"Starting {len(workers)} workers")
     for w in workers:
