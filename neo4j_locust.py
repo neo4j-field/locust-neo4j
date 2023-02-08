@@ -11,7 +11,7 @@ from locust.log import setup_logging
 from locust.stats import stats_printer
 from locust.util.timespan import parse_timespan
 
-from users import RandomReader, RandomWriter
+from users import RandomReader, RandomWriter, RandomReaderWriter
 
 from typing import cast, List, Optional, Tuple, Type
 
@@ -90,7 +90,7 @@ if __name__ == "__main__":
             sys.exit(1)
 
     # Create our "master runner"
-    env = Environment(user_classes=[RandomWriter],
+    env = Environment(user_classes=[RandomReaderWriter],
                       host=args.neo4j_uri,
                       parsed_options=args)
     runner = env.create_master_runner()
