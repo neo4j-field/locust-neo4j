@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 import logging
+import sys
 from os import cpu_count, environ, getpid
 
 import gevent
@@ -8,6 +9,7 @@ from locust import User
 from locust.env import Environment
 from locust.log import setup_logging
 from locust.stats import stats_printer
+from locust.util.timespan import parse_timespan
 
 from users import RandomReader
 
@@ -20,6 +22,7 @@ def worker(neo4j_uri: str, args: argparse.Namespace,
     Worker code. Needs to reimport in case being spawned in new process.
     """
     import logging
+    import gevent
     from locust.env import Environment
     from locust.log import setup_logging
 
@@ -39,7 +42,15 @@ def worker(neo4j_uri: str, args: argparse.Namespace,
         runner.greenlet.join()
     except KeyboardInterrupt:
         logging.info(f"worker({pid}) stopping")
-        runner.greenlet.killall()
+    sys.exit(0)
+
+
+def stop_test(runner) -> None:
+    logging.info("stopping test")
+    try:
+        runner.quit()
+    except KeyboardInterrupt:
+        pass
 
 
 if __name__ == "__main__":
@@ -70,6 +81,14 @@ if __name__ == "__main__":
     else:
         setup_logging("INFO", None)
 
+    # Check if we have a set runtime. Needs parsing.
+    if args.run_time:
+        try:
+            args.run_time = parse_timespan(args.run_time)
+        except ValueError:
+            logging.error("invalid run time")
+            sys.exit(1)
+
     # Create our "master runner"
     env = Environment(user_classes=[RandomReader],
                       host=args.neo4j_uri,
@@ -92,7 +111,9 @@ if __name__ == "__main__":
 
     # greenlets for orchestration
     gevent.spawn(stats_printer(env.stats))
-    gevent.spawn_later(90 * 60, lambda: runner.quit())
+    if args.run_time:
+        logging.info(f"stopping test in {args.run_time} seconds")
+        gevent.spawn_later(args.run_time, stop_test, runner)
 
     # kick off the test...this doesn't return until spawn is complete.
     try:
@@ -102,6 +123,7 @@ if __name__ == "__main__":
 
     # wait for workers to finish up
     try:
+        runner.greenlet.join()
         for w in workers:
             w.join()
     except KeyboardInterrupt:
