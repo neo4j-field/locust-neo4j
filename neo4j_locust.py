@@ -11,7 +11,7 @@ from locust.log import setup_logging
 from locust.stats import stats_printer
 from locust.util.timespan import parse_timespan
 
-from users import RandomReader
+from users import RandomReader, RandomWriter
 
 from typing import cast, List, Optional, Tuple, Type
 
@@ -90,7 +90,7 @@ if __name__ == "__main__":
             sys.exit(1)
 
     # Create our "master runner"
-    env = Environment(user_classes=[RandomReader],
+    env = Environment(user_classes=[RandomWriter],
                       host=args.neo4j_uri,
                       parsed_options=args)
     runner = env.create_master_runner()
@@ -98,7 +98,8 @@ if __name__ == "__main__":
     # Spin up enough workers to saturate the cpus or whatever is requested
     num_workers = cast(int, args.workers or cpu_count())
     workers = [
-        mp.Process(target=worker, args=(args.neo4j_uri, args, [RandomReader]))
+        mp.Process(target=worker,
+                   args=(args.neo4j_uri, args, env.user_classes))
         for _ in range(num_workers)
     ]
     print(f"Starting {len(workers)} workers")
