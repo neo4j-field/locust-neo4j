@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 import argparse
+import logging
 from os import cpu_count, environ, getpid
 
 from locust import User
 from locust.env import Environment
 from locust.log import setup_logging
 
-from typing import List, Optional, Tuple, Type
+from typing import cast, List, Optional, Tuple, Type
 
 
 def worker(neo4j_uri: str, args: argparse.Namespace,
@@ -34,6 +35,7 @@ def worker(neo4j_uri: str, args: argparse.Namespace,
 
 if __name__ == "__main__":
     import multiprocessing as mp
+    import gevent
 
     from locust.argument_parser import LocustArgumentParser, setup_parser_arguments
     from users import RandomReader
@@ -65,9 +67,9 @@ if __name__ == "__main__":
     env = Environment(user_classes=[RandomReader],
                       host=args.neo4j_uri,
                       parsed_options=args)
-    parent = env.create_master_runner()
+    runner = env.create_master_runner()
 
-    num_workers = args.workers or cpu_count()
+    num_workers = cast(int, args.workers or cpu_count())
     workers = [
         mp.Process(target=worker, args=(args.neo4j_uri, args, [RandomReader]))
         for _ in range(num_workers)
@@ -79,9 +81,11 @@ if __name__ == "__main__":
     import time
     time.sleep(2)
     try:
-        parent.start(args.num_users or 1, spawn_rate=args.spawn_rate or 0.1)
+        runner.start(args.num_users or 1, spawn_rate=args.spawn_rate or 0.1)
     except Exception as e:
         logging.info(f"exception caught: {e}")
+
+    gevent.spawn_later(90 * 60, lambda: runner.quit())
 
     for w in workers:
         w.join()
