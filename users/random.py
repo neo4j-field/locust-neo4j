@@ -79,7 +79,7 @@ class RandomWriter(Neo4jUser):
             self.find_max_node_id()
 
         target = int(uniform(0, self.max_node_id))
-        self.read(
+        self.write(
             """
             MATCH p=(n)-[*0..3]-() WHERE id(n) = $nodeId
             WITH p, localdatetime() as now LIMIT 5
