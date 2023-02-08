@@ -237,7 +237,7 @@ class Neo4jUser(User):
         if self.client:
             Neo4jPool.release(self.client)
             self.client = None
-        self.greenlet.kill()     # XXX this is silly
+        # self.greenlet.kill()     # XXX this is silly
         logging.info(f"{self} stopped")
 
     def __str__(self) -> str:

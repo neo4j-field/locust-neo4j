@@ -127,8 +127,12 @@ if __name__ == "__main__":
     # wait for workers to finish up
     try:
         runner.greenlet.join()
+        logging.info(f"waiting on {len(workers)} to finish up")
         for w in workers:
-            w.join()
+            w.join(15)
+            if w.exitcode is None:
+                logging.info(f"killing worker {w}")
+                w.kill()
     except KeyboardInterrupt:
         logging.info("aborting test")
         for w in workers:
