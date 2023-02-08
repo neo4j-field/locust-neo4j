@@ -109,17 +109,19 @@ if __name__ == "__main__":
     import time
     time.sleep(2)
 
-    # greenlets for orchestration
+    # spin up some stats printing
     gevent.spawn(stats_printer(env.stats))
-    if args.run_time:
-        logging.info(f"stopping test in {args.run_time} seconds")
-        gevent.spawn_later(args.run_time, stop_test, runner)
 
     # kick off the test...this doesn't return until spawn is complete.
     try:
         runner.start(args.num_users or 1, spawn_rate=args.spawn_rate or 0.1)
     except KeyboardInterrupt:
         logging.info("aborting test")
+
+    # now that we're ramped up, schedule termination
+    if args.run_time:
+        logging.info(f"stopping test in {args.run_time} seconds")
+        gevent.spawn_later(args.run_time, stop_test, runner)
 
     # wait for workers to finish up
     try:
