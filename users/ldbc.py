@@ -39,7 +39,7 @@ class LDBCUser(Neo4jUser):
     def __init__(self, env: Environment):
         super().__init__(env)
         self.max_person_id = -1
-        self.max_tag = 16080
+        self.max_tag_id = 16080
 
     def find_max_person_id(self) -> None:
         if self.client is None:
@@ -64,5 +64,6 @@ class LDBCUser(Neo4jUser):
         if self.max_person_id < 1:
             self.find_max_person_id()
 
-        target = int(uniform(1, self.max_person_id))
-        self.read(LDBC_I_C_6, personId=target)
+        person_id = int(uniform(1, self.max_person_id))
+        tag_id = str(uniform(1, self.max_tag_id))
+        self.read(LDBC_I_C_6, personId=person_id, tagId=tag_id)
