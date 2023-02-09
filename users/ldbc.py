@@ -31,6 +31,31 @@ ORDER BY postCount DESC, tagName ASC
 LIMIT 10;
 """
 
+LDBC_I_C_10 = """
+// Friend recommendation
+MATCH (person:Person {id:$personId})-[:KNOWS*2..2]-(friend),
+       (friend)-[:IS_LOCATED_IN]->(city)
+WHERE NOT friend=person AND
+      NOT (friend)-[:KNOWS]-(person) AND
+            ( (friend.birthday.month=$birthdayMonth AND friend.birthday.day>=21) OR
+        (friend.birthday.month=($birthdayMonth%12)+1 AND friend.birthday.day<22) )
+WITH DISTINCT friend, city, person
+OPTIONAL MATCH (friend)<-[:HAS_CREATOR]-(post)
+WITH friend, city, collect(post) AS posts, person
+WITH friend,
+     city,
+     size(posts) AS postCount,
+     size([p IN posts WHERE (p)-[:HAS_TAG]->()<-[:HAS_INTEREST]-(person)]) AS commonPostCount
+RETURN friend.id AS personId,
+       friend.firstName AS personFirstName,
+       friend.lastName AS personLastName,
+       friend.gender AS personGender,
+       city.name AS personCityName,
+       commonPostCount - (postCount - commonPostCount) AS commonInterestScore
+ORDER BY commonInterestScore DESC, personId ASC
+LIMIT 10;
+"""
+
 class LDBCUser(Neo4jUser):
     """
     Implements (currently a single) test case(s) from the LDBC Social Network
@@ -67,3 +92,12 @@ class LDBCUser(Neo4jUser):
         person_id = int(uniform(1, self.max_person_id))
         tag_id = str(uniform(1, self.max_tag_id))
         self.read(LDBC_I_C_6, personId=person_id, tagId=tag_id)
+
+    @task
+    def ldbc_friend_recommendation(self) -> None:
+        if self.max_person_id < 1:
+            self.find_max_person_id()
+
+        person_id = int(uniform(1, self.max_person_id))
+        birthday = int(uniform(1, 13))
+        self.read(LDBC_I_C_10, personId=person_id, birthdayMonth=birthday)
