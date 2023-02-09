@@ -29,7 +29,10 @@ def worker(neo4j_uri: str, args: argparse.Namespace,
     from locust.env import Environment
     from locust.log import setup_logging
 
-    setup_logging("INFO", None)
+    if args.debug:
+        setup_logging("DEBUG", None)
+    else:
+        setup_logging("INFO", None)
 
     pid = getpid()
     env = Environment(host=neo4j_uri, parsed_options=args,
