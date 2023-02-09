@@ -1,6 +1,7 @@
 """
 LDBC-like users
 """
+import logging
 from random import uniform
 from typing import Tuple
 
@@ -53,6 +54,9 @@ class LDBCUser(Neo4jUser):
                 raise RuntimeError("failed to find max person id")
             value = record.value()
             res.consume()
+            if value is None:
+                logging.error("failed to find person id...is this an LDBC graph?")
+                self.environment.runner.quit()
             self.max_person_id = int(value)
 
     @task
