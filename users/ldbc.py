@@ -57,8 +57,8 @@ class LDBCUser(Neo4jUser):
 
     @task
     def ldbc_tag_cooccurrence(self) -> None:
-        if self.max_node_id < 1:
-            self.find_max_node_id()
+        if self.max_person_id < 1:
+            self.find_max_person_id()
 
         target = int(uniform(1, self.max_person_id))
         self.read(LDBC_I_C_6, personId=target)
