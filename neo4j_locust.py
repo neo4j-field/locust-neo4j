@@ -5,13 +5,16 @@ import sys
 from os import cpu_count, environ, getpid
 
 import gevent
+
 from locust import User
 from locust.env import Environment
 from locust.log import setup_logging
 from locust.stats import stats_printer
+
+from locust.util.load_locustfile import is_user_class
 from locust.util.timespan import parse_timespan
 
-from users import RandomReader, RandomWriter, RandomReaderWriter
+import users
 
 from typing import cast, List, Optional, Tuple, Type
 
@@ -89,8 +92,27 @@ if __name__ == "__main__":
             logging.error("invalid run time")
             sys.exit(1)
 
+    # Find our user classes
+    available_user_classes = {
+        name: value for name, value in vars(users).items()
+        if is_user_class(value)
+    }
+    if args.list_commands:
+        # Short out and dump identified user classes
+        print("Available Users:")
+        for name, value in available_user_classes.items():
+            print(f"  {name}: {value.__doc__}")
+        sys.exit(0)
+    user_classes = [
+        value for name, value in available_user_classes.items()
+        if name in set(args.user_classes)
+    ]
+    if not user_classes:
+        logging.error("no valid user classes found or specified")
+        sys.exit(1)
+
     # Create our "master runner"
-    env = Environment(user_classes=[RandomReaderWriter],
+    env = Environment(user_classes=user_classes,
                       host=args.neo4j_uri,
                       parsed_options=args)
     runner = env.create_master_runner()
