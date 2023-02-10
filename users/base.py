@@ -52,7 +52,7 @@ class Neo4jClient:
         return _work
 
     def _run_tx(self, req: Request, user_ref: ref[User],
-                cypher: str, **kwargs: Any) -> Tuple[int, int, bool]:
+                cypher: str, db: str, **kwargs: Any) -> Tuple[int, int, bool]:
         err = None
         delta, cnt, abort = 0, 0, False
         send_report = True
@@ -63,7 +63,7 @@ class Neo4jClient:
 
         start = perf_counter()
         try:
-            with self.driver.session() as session:
+            with self.driver.session(database=db) as session:
                 if req is Request.READ:
                     cnt, _ = session.read_transaction(
                         self._do_work(cypher), **kwargs)
@@ -92,13 +92,13 @@ class Neo4jClient:
                  })
         return cnt, delta, abort
 
-    def read(self, user_ref: ref[User], cypher: str, **kwargs: Any) \
+    def read(self, user_ref: ref[User], cypher: str, db: str, **kwargs: Any) \
             -> Tuple[int, int, bool]:
-        return self._run_tx(Request.READ, user_ref, cypher, **kwargs)
+        return self._run_tx(Request.READ, user_ref, cypher, db, **kwargs)
 
-    def write(self, user_ref: ref[User], cypher: str, **kwargs: Any) \
+    def write(self, user_ref: ref[User], cypher: str, db: str, **kwargs: Any) \
             -> Tuple[int, int, bool]:
-        return self._run_tx(Request.WRITE, user_ref, cypher, **kwargs)
+        return self._run_tx(Request.WRITE, user_ref, cypher, db, **kwargs)
 
     def close(self) -> None:
         logging.info(f"{self} closing driver")
@@ -204,25 +204,27 @@ class Neo4jUser(User):
         self.user_id = str(uuid4())
         self.client: Optional[Neo4jClient] = None
 
-    def read(self, cypher: str, **kwargs: Any) -> Tuple[int, int]:
+    def read(self, cypher: str, db: str = "neo4j",
+             **kwargs: Any) -> Tuple[int, int]:
         """Higher order wrapper around Neo4jClient.read()"""
         if not self.client:
             # bailout
             return -1, 0
 
-        cnt, delta, abort = self.client.read(ref(self), cypher, **kwargs)
+        cnt, delta, abort = self.client.read(ref(self), cypher, db, **kwargs)
         if abort:
             logging.debug(f"{self} aborting")
             self.on_stop()
         return cnt, delta
 
-    def write(self, cypher: str, **kwargs: Any) -> Tuple[int, int]:
+    def write(self, cypher: str, db: str = "neo4j",
+              **kwargs: Any) -> Tuple[int, int]:
         """Higher order wrapper around Neo4jClient.write()"""
         if not self.client:
             # bailout
             return -1, 0
 
-        cnt, delta, abort = self.client.write(ref(self), cypher, **kwargs)
+        cnt, delta, abort = self.client.write(ref(self), cypher, db, **kwargs)
         if abort:
             logging.debug(f"{self} aborting")
             self.on_stop()
