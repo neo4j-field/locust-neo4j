@@ -1,7 +1,7 @@
 from random import uniform
 from typing import Tuple
 
-from locust import task
+from locust import tag, task
 from locust.env import Environment
 
 from . import Neo4jUser
@@ -32,6 +32,7 @@ class RandomReader(Neo4jUser):
             res.consume()
             self.max_node_id = int(value)
 
+    @tag("read")
     @task
     def random_read(self) -> None:
         if self.max_node_id < 0:
@@ -73,6 +74,7 @@ class RandomWriter(Neo4jUser):
             res.consume()
             self.max_node_id = int(value)
 
+    @tag("write")
     @task
     def random_write(self) -> None:
         if self.max_node_id < 0:
@@ -114,6 +116,7 @@ class RandomReaderWriter(Neo4jUser):
             res.consume()
             self.max_node_id = int(value)
 
+    @tag("read")
     @task(5)
     def random_read(self) -> None:
         if self.max_node_id < 0:
@@ -129,6 +132,7 @@ class RandomReaderWriter(Neo4jUser):
             nodeId=target
         )
 
+    @tag("write")
     @task(1)
     def random_write(self) -> None:
         if self.max_node_id < 0:

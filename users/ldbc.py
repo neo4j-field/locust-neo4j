@@ -5,7 +5,7 @@ import logging
 from random import uniform
 from typing import Tuple
 
-from locust import task
+from locust import tag, task
 from locust.env import Environment
 
 from . import Neo4jUser
@@ -84,6 +84,7 @@ class LDBCUser(Neo4jUser):
                 self.environment.runner.quit()
             self.max_person_id = int(value)
 
+    @tag("ldbc_ic6")
     @task
     def ldbc_tag_cooccurrence(self) -> None:
         if self.max_person_id < 1:
@@ -93,6 +94,7 @@ class LDBCUser(Neo4jUser):
         tag_id = str(uniform(1, self.max_tag_id))
         self.read(LDBC_I_C_6, personId=person_id, tagId=tag_id)
 
+    @tag("ldbc_ic10")
     @task
     def ldbc_friend_recommendation(self) -> None:
         if self.max_person_id < 1:
