@@ -106,6 +106,10 @@ if __name__ == "__main__":
         for name, value in available_user_classes.items():
             print(f"  {name}: {value.__doc__}")
         sys.exit(0)
+
+    if args.tags:
+        logging.info(f"using tags: {args.tags}")
+
     user_classes = [
         value for name, value in available_user_classes.items()
         if name in set(args.user_classes)
@@ -117,6 +121,7 @@ if __name__ == "__main__":
     # Create our "master runner"
     env = Environment(user_classes=user_classes,
                       host=args.neo4j_uri,
+                      tags=args.tags,
                       parsed_options=args)
     runner = env.create_master_runner()
 
