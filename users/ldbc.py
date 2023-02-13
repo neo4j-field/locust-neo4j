@@ -11,6 +11,20 @@ from locust.env import Environment
 from . import Neo4jUser
 
 
+LDBC_I_C_2 = """
+MATCH (:Person {id: $personId})-[:KNOWS]-(friend),
+      (friend)<-[:HAS_CREATOR]-(message)
+WHERE message.creationDate <= date({year: 2010, month:10, day:10})
+RETURN friend.id AS personId,
+       friend.firstName AS personFirstName,
+       friend.lastName AS personLastName,
+       message.id AS messageId,
+       coalesce(message.content, message.imageFile) AS messageContent,
+       message.creationDate AS messageDate
+ORDER BY messageDate DESC, messageId ASC
+LIMIT 20
+"""
+
 LDBC_I_C_6 = """
 // Tag co-occurrence
 MATCH (knownTag:Tag {name: "Tag-" + $tagId})
@@ -30,6 +44,23 @@ RETURN commonTag.name AS tagName, postCount
 ORDER BY postCount DESC, tagName ASC
 LIMIT 10;
 """
+
+LDBC_I_C_9 = """
+// Recent messages by Friends and Friends of friends
+MATCH (person:Person {id:$personId})-[:KNOWS*1..2]-(otherPerson)
+MATCH (otherPerson)<-[:HAS_CREATOR]-(message:Message)
+WHERE message.creationDate < $maxDate
+RETURN otherPerson.id as personId,
+       otherPerson.firstName as firstName,
+       otherPerson.lastName as lastName,
+       message.id as messageId,
+       message.content as content,
+       message.imageFile as imageFile,
+       message.creationDate as creationDate
+ORDER BY creationDate DESC, messageId ASC
+LIMIT 20
+"""
+
 
 LDBC_I_C_10 = """
 // Friend recommendation
@@ -84,8 +115,17 @@ class LDBCUser(Neo4jUser):
                 self.environment.runner.quit()
             self.max_person_id = int(value)
 
+    @tag("ldbc_ic2")
+    @task(37)
+    def ldbc_recent_messages_by_friends(self) -> None:
+        if self.max_person_id < 1:
+            self.find_max_person_id()
+
+        person_id = int(uniform(1, self.max_person_id))
+        self.read(LDBC_I_C_2, personId=person_id)
+
     @tag("ldbc_ic6")
-    @task
+    @task(129)
     def ldbc_tag_cooccurrence(self) -> None:
         if self.max_person_id < 1:
             self.find_max_person_id()
@@ -95,7 +135,7 @@ class LDBCUser(Neo4jUser):
         self.read(LDBC_I_C_6, personId=person_id, tagId=tag_id)
 
     @tag("ldbc_ic10")
-    @task
+    @task(30)
     def ldbc_friend_recommendation(self) -> None:
         if self.max_person_id < 1:
             self.find_max_person_id()
