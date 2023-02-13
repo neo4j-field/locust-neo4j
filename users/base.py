@@ -101,6 +101,7 @@ class Neo4jClient:
         return self._run_tx(Request.WRITE, user_ref, cypher, db, **kwargs)
 
     def close(self) -> None:
+        # todo: this is being called twice for some reason
         logging.info(f"{self} closing driver")
         self.driver.close()
 
