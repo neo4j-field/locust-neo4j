@@ -12,6 +12,7 @@ from . import Neo4jUser
 
 
 LDBC_I_C_2 = """
+// Recent messages by your friends
 MATCH (:Person {id: $personId})-[:KNOWS]-(friend),
       (friend)<-[:HAS_CREATOR]-(message)
 WHERE message.creationDate <= date({year: 2010, month:10, day:10})
@@ -49,15 +50,14 @@ LDBC_I_C_9 = """
 // Recent messages by Friends and Friends of friends
 MATCH (person:Person {id:$personId})-[:KNOWS*1..2]-(otherPerson)
 MATCH (otherPerson)<-[:HAS_CREATOR]-(message:Message)
-WHERE message.creationDate < $maxDate
+WHERE message.creationDate < date({year: 2010, month:10, day:10})
 RETURN otherPerson.id as personId,
        otherPerson.firstName as firstName,
        otherPerson.lastName as lastName,
        message.id as messageId,
-       message.content as content,
-       message.imageFile as imageFile,
-       message.creationDate as creationDate
-ORDER BY creationDate DESC, messageId ASC
+       coalesce(message.content, message.imageFile) as messageContent,
+       message.creationDate as messageDate
+ORDER BY messageDate DESC, messageId ASC
 LIMIT 20
 """
 
@@ -86,6 +86,7 @@ RETURN friend.id AS personId,
 ORDER BY commonInterestScore DESC, personId ASC
 LIMIT 10;
 """
+
 
 class LDBCUser(Neo4jUser):
     """
@@ -133,6 +134,15 @@ class LDBCUser(Neo4jUser):
         person_id = int(uniform(1, self.max_person_id))
         tag_id = str(uniform(1, self.max_tag_id))
         self.read(LDBC_I_C_6, personId=person_id, tagId=tag_id)
+
+    @tag("ldbc_ic9")
+    @task(157)
+    def ldbc_tag_cooccurrence(self) -> None:
+        if self.max_person_id < 1:
+            self.find_max_person_id()
+
+        person_id = int(uniform(1, self.max_person_id))
+        self.read(LDBC_I_C_9, personId=person_id)
 
     @tag("ldbc_ic10")
     @task(30)
