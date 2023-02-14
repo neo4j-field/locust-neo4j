@@ -145,7 +145,7 @@ if __name__ == "__main__":
 
     # kick off the test...this doesn't return until spawn is complete.
     try:
-        runner.start(args.num_users or 1, spawn_rate=args.spawn_rate or 0.1)
+        runner.start(args.num_users or 1, spawn_rate=args.spawn_rate or 1)
     except KeyboardInterrupt:
         logging.info("aborting test")
 
