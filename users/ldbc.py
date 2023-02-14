@@ -137,7 +137,7 @@ class LDBCUser(Neo4jUser):
 
     @tag("ldbc_ic9")
     @task(157)
-    def ldbc_tag_cooccurrence(self) -> None:
+    def ldbc_recent_messages_by_fofs(self) -> None:
         if self.max_person_id < 1:
             self.find_max_person_id()
 
